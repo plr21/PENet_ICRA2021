@@ -97,7 +97,7 @@ def get_paths_and_transform(split, args):
             def get_rgb_paths(p):
                 return p.replace("groundtruth_depth", "image")
     elif split == "test_completion":
-        transform = no_transform
+        transform = val_transform
         glob_d = os.path.join(
             args.data_folder,
             "data_depth_selection/test_depth_completion_anonymous/velodyne_raw/*.png"
@@ -107,7 +107,7 @@ def get_paths_and_transform(split, args):
             args.data_folder,
             "data_depth_selection/test_depth_completion_anonymous/image/*.png")
     elif split == "test_prediction":
-        transform = no_transform
+        transform = val_transform
         glob_d = None
         glob_gt = None  # "test_depth_completion_anonymous/"
         glob_rgb = os.path.join(
@@ -130,6 +130,8 @@ def get_paths_and_transform(split, args):
                 paths_rgb)  # test_prediction has no sparse depth
         else:
             paths_d = sorted(glob.glob(glob_d))
+        print(f"paths_rgb: {glob_rgb}")
+        print(f"paths_d: {glob_d}")
 
     if len(paths_d) == 0 and len(paths_rgb) == 0 and len(paths_gt) == 0:
         raise (RuntimeError("Found 0 images under {}".format(glob_gt)))
