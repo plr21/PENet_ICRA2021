@@ -2,7 +2,6 @@ import argparse
 import typing
 import logging
 import torch
-import CoordConv
 import vis_utils
 
 # Use GPU only if GPU is available and memory is more than 8GB
@@ -16,78 +15,14 @@ else:
 
 from collections import namedtuple
 from pathlib import Path
-from dataloaders import transforms
-from dataloaders import kitti_loader
-from model import ENet, PENet_C1, PENet_C2, PENet_C4
+
+from penet_s2d_predictor import PENetSparseToDensePredictor, get_model
 
 LOGGER = logging.getLogger(__file__)
-
-ModelConfig = namedtuple(
-    "ModelConfig", ["network_model", "dilation_rate", "convolutional_layer_encoding"]
-)
-
-# Height and width of the input images
-INPUT_DIMS = (352, 1216)
 
 
 def _validate_file_path(file_path: Path) -> None:
     assert file_path.is_file(), f"{file_path} is not a valid file."
-
-
-def _get_model(network_model: str, dilation_rate: int, conv_layer_encoding: str):
-    config = ModelConfig(network_model, dilation_rate, conv_layer_encoding)
-    model = None
-    penet_accelerated = False
-    if network_model == "e":
-        model = ENet(config).to(device)
-    else:
-        if dilation_rate == 1:
-            model = PENet_C1(config).to(device)
-            penet_accelerated = True
-        elif dilation_rate == 2:
-            model = PENet_C2(config).to(device)
-            penet_accelerated = True
-        elif dilation_rate == 4:
-            model = PENet_C4(config).to(device)
-            penet_accelerated = True
-
-    if penet_accelerated:
-        model.encoder3.requires_grad = False
-        model.encoder5.requires_grad = False
-        model.encoder7.requires_grad = False
-
-    return model
-
-
-def _prepare_input(
-    color_image_path: Path, sparse_depth_image_path: Path
-) -> typing.Dict:
-    # Get the calibration matrix
-    camera_intrinsics = kitti_loader.load_calib()
-
-    rgb = vis_utils.rgb_read(str(color_image_path))
-    sparse_depth = vis_utils.depth_read(str(sparse_depth_image_path))
-
-    heigth, width = INPUT_DIMS
-    position = CoordConv.AddCoordsNp(heigth, width).call()
-
-    to_tensor = transforms.ToTensor()
-
-    # Create input data dict
-    data_dict = {
-        "rgb": to_tensor(rgb).float(),
-        "d": to_tensor(sparse_depth).float(),
-        "gt": None,
-        "g": None,
-        "position": to_tensor(position).float(),
-        "K": to_tensor(camera_intrinsics).float(),
-    }
-
-    return {
-        key: torch.unsqueeze(value, 0)
-        for key, value in data_dict.items()
-        if value is not None
-    }
 
 
 def sparse_to_dense(
@@ -108,23 +43,18 @@ def sparse_to_dense(
             sparse_depth_image_path.stem + "_dense" + sparse_depth_image_path.suffix
         )
 
-    model = _get_model(network_model, dilation_rate, conv_layer_encoding)
-    # Load weights from checkpoint file
-    checkpoint = torch.load(str(checkpoint_path), map_location=device)
-    model.load_state_dict(checkpoint["model"], strict=False)
+    penet_model = get_model(
+        network_model, dilation_rate, conv_layer_encoding, checkpoint_path
+    )
+    s2d_predictor = PENetSparseToDensePredictor(penet_model)
 
-    # Get the data
-    input_data_dict = _prepare_input(color_image_path, sparse_depth_image_path)
+    rgb = vis_utils.rgb_read(str(color_image_path))
+    sparse_depth = vis_utils.depth_read(str(sparse_depth_image_path))
 
-    # Predict the dense depth map
-    model.eval()
-    if network_model == "e":
-        _, _, pred_dense_depth_image = model(input_data_dict)
-    else:
-        pred_dense_depth_image = model(input_data_dict)
+    dense_depth_image = s2d_predictor.predict(rgb, sparse_depth)
 
     # Save the depth image to disk
-    vis_utils.save_depth_as_uint8colored(pred_dense_depth_image, dense_depth_image_path)
+    vis_utils.save_depth_as_uint8colored(dense_depth_image, dense_depth_image_path)
 
 
 def _parse_args() -> argparse.Namespace:
