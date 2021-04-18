@@ -1,10 +1,10 @@
 import argparse
 import typing
 import logging
-import torch
-import vis_utils
 
 # Use GPU only if GPU is available and memory is more than 8GB
+import torch
+
 if torch.cuda.is_available() and torch.cuda.get_device_properties(0).total_memory > 8e9:
     import torch.backends.cudnn as cudnn
 
@@ -12,10 +12,8 @@ if torch.cuda.is_available() and torch.cuda.get_device_properties(0).total_memor
     device = torch.device("cuda")
 else:
     device = torch.device("cpu")
-
-from collections import namedtuple
+import vis_utils
 from pathlib import Path
-
 from penet_s2d_predictor import PENetSparseToDensePredictor, get_model
 
 LOGGER = logging.getLogger(__file__)
