@@ -84,8 +84,7 @@ def get_paths_and_transform(split, args):
                 return pnew
 
         elif args.val == "select":
-            # transform = no_transform
-            transform = val_transform
+            transform = no_transform
             glob_d = os.path.join(
                 args.data_folder,
                 "data_depth_selection/val_selection_cropped/velodyne_raw/*.png")
@@ -97,7 +96,7 @@ def get_paths_and_transform(split, args):
             def get_rgb_paths(p):
                 return p.replace("groundtruth_depth", "image")
     elif split == "test_completion":
-        transform = no_transform
+        transform = val_transform
         glob_d = os.path.join(
             args.data_folder,
             "data_depth_selection/test_depth_completion_anonymous/velodyne_raw/*.png"
