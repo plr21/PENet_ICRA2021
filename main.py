@@ -6,6 +6,7 @@ import torch.nn.parallel
 import torch.optim
 import torch.utils.data
 import time
+from tqdm import tqdm
 
 from dataloaders.kitti_loader import load_calib, input_options, KittiDepth
 from metrics import AverageMeter, Result
@@ -188,7 +189,7 @@ def iterate(mode, args, loader, model, optimizer, logger, epoch):
         lr = 0
 
     torch.cuda.empty_cache()
-    for i, batch_data in enumerate(loader):
+    for i, batch_data in enumerate(tqdm(loader)):
         dstart = time.time()
         batch_data = {
             key: val.to(device)
@@ -255,9 +256,11 @@ def iterate(mode, args, loader, model, optimizer, logger, epoch):
         if mode == "test_completion":
             str_i = str(i)
             path_i = str_i.zfill(10) + '.png'
+            path_i_rgb = str_i.zfill(10) + '_rgb.png'
             path = os.path.join(args.data_folder_save, path_i)
-            # vis_utils.save_depth_as_uint8colored(pred, path)
+            path_rgb = os.path.join(args.data_folder_save, path_i_rgb)
             vis_utils.save_depth_as_uint16png(pred, path)
+            vis_utils.save_depth_as_uint8colored(pred, path_rgb)
 
         if(not args.evaluate):
             gpu_time = time.time() - start
