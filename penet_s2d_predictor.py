@@ -76,7 +76,7 @@ class PENetSparseToDensePredictor:
         assert network_model in ["e", "pe"]
         dilation_rate = config["dilation_rate"]
         assert dilation_rate in [1,2,3,4]
-        conv_layer_encoding = config["convolutional_layer_enconding"]
+        conv_layer_encoding = config["convolutional_layer_encoding"]
         assert conv_layer_encoding in ["xyz", "std"]
 
         # Get model data structure
