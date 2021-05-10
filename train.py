@@ -181,9 +181,9 @@ def iterate(mode, options, loader, model, optimizer, depth_criterion, logger, ep
                 optimizer.zero_grad()
             loss.backward()
 
-        if i % _MULTI_BATCH_SIZE == (_MULTI_BATCH_SIZE - 1) or i == (len(loader) - 1):
-            optimizer.step()
-        print("loss:", loss, " epoch:", epoch, " ", i, "/", len(loader))
+            if i % _MULTI_BATCH_SIZE == (_MULTI_BATCH_SIZE - 1) or i == (len(loader) - 1):
+                optimizer.step()
+            print("loss:", loss, " epoch:", epoch, " ", i, "/", len(loader))
 
         gpu_time = time.time() - start
 
@@ -307,8 +307,8 @@ def train(options: argparse.Namespace):
             train_loader,
             model,
             optimizer,
-            logger,
             depth_criterion,
+            logger,
             epoch,
         )
         train_writer.add_result(epoch, result)
@@ -320,8 +320,8 @@ def train(options: argparse.Namespace):
             val_loader,
             model,
             None,
-            logger,
             depth_criterion,
+            logger,
             epoch,
         )
         val_writer.add_result(epoch, result)
