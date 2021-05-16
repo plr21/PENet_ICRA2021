@@ -26,7 +26,13 @@ ModelConfig = namedtuple(
     "ModelConfig", ["network_model", "dilation_rate", "convolutional_layer_encoding"]
 )
 
-def get_model(network_model: str, dilation_rate: int, conv_layer_encoding: str, checkpoint_file_path: Path):
+
+def get_model(
+    network_model: str,
+    dilation_rate: int,
+    conv_layer_encoding: str,
+    checkpoint_file_path: Path,
+):
     config = ModelConfig(network_model, dilation_rate, conv_layer_encoding)
     penet_accelerated = False
     if network_model == "e":
@@ -46,13 +52,14 @@ def get_model(network_model: str, dilation_rate: int, conv_layer_encoding: str, 
         model.encoder3.requires_grad = False
         model.encoder5.requires_grad = False
         model.encoder7.requires_grad = False
-    
+
     # FIXME - This is nasty hack. The pretrained models available
     # on GitHub contain the whole model objects, not just the state dicts
     # (see https://github.com/pytorch/pytorch/issues/3678) so it expects
     # module metrics.py to be in the PYTHONPATH. So, since the source code
     # was moved into this module, we need this workaround to load the models.
     import os, sys
+
     sys.path.insert(0, os.path.dirname(__file__))
     checkpoint = torch.load(str(checkpoint_file_path), map_location=device)
     model.load_state_dict(checkpoint["model"], strict=False)
@@ -60,44 +67,55 @@ def get_model(network_model: str, dilation_rate: int, conv_layer_encoding: str, 
 
     return model
 
-class PENetSparseToDensePredictor:
 
-    def __init__(
-        self, penet_model
-    ):
+class PENetSparseToDensePredictor:
+    def __init__(self, penet_model):
         self.penet_model = penet_model
         self.to_tensor_functor = transforms.ToTensor()
         position = CoordConv.AddCoordsNp(INPUT_DIMS[0], INPUT_DIMS[1]).call()
         self.position_tensor = self.to_tensor_functor(position).float()
         # TODO: this is still hard-coded, make it a parameter
         camera_intrinsics = kitti_loader.load_calib()
-        self.camera_intrinsics_tensor = self.to_tensor_functor(camera_intrinsics).float()
+        self.camera_intrinsics_tensor = self.to_tensor_functor(
+            camera_intrinsics
+        ).float()
+
+    @staticmethod
+    def from_config_file(config_file_path: Path):
+        """
+        Instantiate and configure a predictor from a JSON config
+        """
+        with open(config_file_path, "r") as j:
+            config_dict = json.load(j)
+
+        return PENetSparseToDensePredictor.from_config_dict(config_dict)
 
     @classmethod
-    def from_config_file(cls, config_file_path: Path):
-        with open(config_file_path, 'r') as j:
-            config = json.load(j)
-
-        checkpoint_file_path = Path(config["checkpoint"])
+    def from_config_dict(cls, config_dict: dict):
+        checkpoint_file_path = Path(config_dict["checkpoint"])
         assert checkpoint_file_path.is_file()
-        network_model = config["network_model"]
+        network_model = config_dict["network_model"]
         assert network_model in ["e", "pe"]
-        dilation_rate = config["dilation_rate"]
-        assert dilation_rate in [1,2,3,4]
-        conv_layer_encoding = config["convolutional_layer_encoding"]
+        dilation_rate = config_dict["dilation_rate"]
+        assert dilation_rate in [1, 2, 3, 4]
+        conv_layer_encoding = config_dict["convolutional_layer_encoding"]
         assert conv_layer_encoding in ["xyz", "std"]
 
         # Get model data structure
-        penet_model = get_model(network_model, dilation_rate, conv_layer_encoding, checkpoint_file_path)
-        
+        penet_model = get_model(
+            network_model, dilation_rate, conv_layer_encoding, checkpoint_file_path
+        )
         return cls(penet_model)
 
-
     def _prepare_input(
-        self, rgb: np.ndarray, sparse_depth: np.ndarray,
+        self,
+        rgb: np.ndarray,
+        sparse_depth: np.ndarray,
     ) -> Dict[str, Union[None, np.ndarray]]:
 
-        assert rgb.shape[:2] == INPUT_DIMS, f"rgb shape={rgb.shape[:2]} != {INPUT_DIMS} INPUT_DIMS"
+        assert (
+            rgb.shape[:2] == INPUT_DIMS
+        ), f"rgb shape={rgb.shape[:2]} != {INPUT_DIMS} INPUT_DIMS"
         assert sparse_depth.shape[:2] == INPUT_DIMS
 
         if sparse_depth.ndim == 2:
@@ -110,7 +128,7 @@ class PENetSparseToDensePredictor:
             "gt": None,
             "g": None,
             "position": self.position_tensor,
-            "K": self.camera_intrinsics_tensor
+            "K": self.camera_intrinsics_tensor,
         }
 
         return {
@@ -128,4 +146,3 @@ class PENetSparseToDensePredictor:
             pred_dense_depth_image = self.penet_model(input_data_dict)
 
         return pred_dense_depth_image
-        
