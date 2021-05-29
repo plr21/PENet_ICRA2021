@@ -133,6 +133,10 @@ parser.add_argument('-co', '--convolutional-layer-encoding', default="xyz", type
                     choices=["std", "z", "uv", "xyz"],
                     help='information concatenated in encoder convolutional layers')
 
+#Train on ambigous scale / Normalize depth during preprocessing
+parser.add_argument('-as', '--ambigous-scale', action="store_true",
+                    help='enable training with ambigous scale augmentation')
+
 #dilated rate of DA-CSPN++
 parser.add_argument('-d', '--dilation-rate', default="2", type=int,
                     choices=[1, 2, 4],

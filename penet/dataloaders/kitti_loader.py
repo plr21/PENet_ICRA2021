@@ -162,7 +162,7 @@ def rgb_read(filename):
     return rgb_png
 
 
-def depth_read(filename):
+def depth_read(filename, ambigous_scale=False):
     # loads depth map D from png file
     # and returns it as a numpy array,
     # for details see readme.txt
@@ -174,7 +174,13 @@ def depth_read(filename):
     assert np.max(depth_png) > 255, \
         "np.max(depth_png)={}, path={}".format(np.max(depth_png), filename)
 
-    depth = depth_png.astype(np.float) / 256.
+    depth = depth_png.astype(np.float)
+    if ambigous_scale:
+        depth /= np.max(depth)
+        # Magic number here from distance heuristic
+        depth *= 200
+    else:
+        depth = depth_png.astype(np.float) / 256.
     # depth[depth_png == 0] = -1.
     depth = np.expand_dims(depth, -1)
     return depth
@@ -346,11 +352,15 @@ class KittiDepth(data.Dataset):
         self.transform = transform
         self.K = load_calib()
         self.threshold_translation = 0.1
+        if self.args.ambigous_scale:
+            print("Started Loader with AMBIGOUS scale")
+        else:
+            print("Started Loader with CORRECT scale")
 
     def __getraw__(self, index):
         rgb = rgb_read(self.paths['rgb'][index]) if \
             (self.paths['rgb'][index] is not None and (self.args.use_rgb or self.args.use_g)) else None
-        sparse = depth_read(self.paths['d'][index]) if \
+        sparse = depth_read(self.paths['d'][index], self.args.ambigous_scale) if \
             (self.paths['d'][index] is not None and self.args.use_d) else None
         target = depth_read(self.paths['gt'][index]) if \
             self.paths['gt'][index] is not None else None
