@@ -60,7 +60,7 @@ def _get_model_and_logger(options: argparse.Namespace):
             # metrics.py is not found by pickle so we use this hack
             import sys
 
-            sys.path.insert(0, os.path.dirname(__file__))
+            sys.path.insert(0, os.path.dirname(__file__).join("penet"))
             checkpoint = torch.load(str(options.resume), map_location=device)
         # Training checkpoint should be a dict
         assert isinstance(checkpoint, dict)
