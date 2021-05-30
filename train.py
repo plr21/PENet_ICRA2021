@@ -61,6 +61,7 @@ def _get_model_and_logger(options: argparse.Namespace):
             import sys
 
             sys.path.insert(0, os.path.dirname(__file__).join("penet"))
+            print("Inserted to path: {}".format(os.path.dirname(__file__).join("penet")))
             checkpoint = torch.load(str(options.resume), map_location=device)
         # Training checkpoint should be a dict
         assert isinstance(checkpoint, dict)
@@ -547,6 +548,10 @@ def _parse_args() -> argparse.Namespace:
         choices=[1, 2, 4],
         help="CSPN++ dilation rate",
     )
+
+    #Train on ambigous scale / Normalize depth during preprocessing
+    parser.add_argument('-as', '--ambigous-scale', action="store_true",
+                        help='enable training with ambigous scale augmentation')
 
     options = parser.parse_args()
     options.use_rgb = "rgb" in options.input
